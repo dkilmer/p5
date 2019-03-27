@@ -7,7 +7,7 @@ const TILE_SIZE = 64;
 const PSIZE = TILE_SIZE - (2 * PMARGIN);
 const tiles_h = 8; //(SCR_WIDTH - (2 * MARGIN)) / TILE_SIZE;
 const tiles_v = 8; //(SCR_HEIGHT - (2 * MARGIN)) / TILE_SIZE;
-const MOVE_FRAMES = 15;
+var MOVE_FRAMES = 10;
 const TEXT_SIZE = 40;
 
 const WALL = 1;
@@ -39,6 +39,8 @@ var curLevel;
 var level;
 var titleScreen = true;
 var winScreen = false;
+var exitOpen = false;
+var exitAnim = 0;
 
 var level_strs = [
 	'*......*'+
@@ -68,15 +70,6 @@ var level_strs = [
 	'*.*.*.*.'+
 	'*X*U*...',
 
-	'.......X'+
-	'........'+
-	'....*...'+
-	'@..***.U'+
-	'....*...'+
-	'@..#....'+
-	'..#...@.'+
-	'.#......',
-
 	'........'+
 	'.******.'+
 	'.*.....@'+
@@ -95,6 +88,28 @@ var level_strs = [
 	'.****.*.'+
 	'........',
 
+	'.......X'+
+	'........'+
+	'....*...'+
+	'@..***.U'+
+	'....*...'+
+	'@..#....'+
+	'..#...@.'+
+	'.#......',
+
+	'@@......'+
+	'***.....'+
+	'##*D....'+
+	'.#****..'+
+	'@.......'+
+	'..****..'+
+	'..*.....'+
+	'##*@X@..'
+
+];
+
+/*
+
 	'...*****'+
 	'.......#'+
 	'.*.****#'+
@@ -102,12 +117,7 @@ var level_strs = [
 	'X*..@.*.'+
 	'U*....*.'+
 	'.****.*.'+
-	'........'
-];
-
-/*
-
-
+	'........',
 
 	'........'+
 	'........'+
@@ -143,6 +153,8 @@ function setup() {
 
 function loadLevel() {
 	bps = [];
+	exitOpen = false;
+	exitAnim = 0;
 	clearUndos();
 	attached = -1;
 	level = [];
@@ -208,8 +220,16 @@ function keyTyped() {
 			}
 			loadLevel();				
 		}
-	} else if (key === 'u') {
+	} else if (key === 'z') {
 		popUndo();
+	} else if (key === '+') {
+		if (MOVE_FRAMES > 4) {
+			MOVE_FRAMES--;
+		}
+	} else if (key === '-') {
+		if (MOVE_FRAMES < 15) {
+			MOVE_FRAMES++;
+		}
 	} else if (!isNaN(parseInt(key))) {
 		var n = parseInt(key);
 		if (n <= level_strs.length) {
@@ -445,6 +465,8 @@ function updateBox(i) {
 		bps[i].doing = NONE;
 		bps[i].dist = 0;
 		//console.log('box '+i+' move done', bps[i].x, bps[i].y);
+		exitOpen = canExit();
+		if (!exitOpen) exitAnim = 0;
 		return tilePos(bps[i].x, bps[i].y);
 	}
 	var howfar = cubicEaseInOut(bframe / MOVE_FRAMES) * (TILE_SIZE * bps[i].dist);
@@ -459,11 +481,20 @@ function updateBox(i) {
 }
 
 function evaluateWin() {
+	exitOpen = canExit();
+	if (!exitOpen) exitAnim = 0;
 	if (level[pp.y][pp.x] !== EXIT) return;
 	for (var i=0; i<bps.length; i++) {
 		if (level[bps[i].y][bps[i].x] !== SHELF) return;
 	}
 	winScreen = true;
+}
+
+function canExit() {
+	for (var i=0; i<bps.length; i++) {
+		if (level[bps[i].y][bps[i].x] !== SHELF) return false;
+	}
+	return true;
 }
 
 function updatePlayer() {
@@ -530,10 +561,16 @@ function drawExit(x, y) {
 	stroke(210);
 	fill(240);
 	var tp = playerPos(x, y);
-	for (var xx=TILE_SIZE; xx>0; xx-=20) {
+	ellipse(tp.x, tp.y, TILE_SIZE, TILE_SIZE);
+	var xstart = (exitOpen) ? TILE_SIZE-exitAnim : TILE_SIZE - 20;
+	for (var xx=xstart; xx>0; xx-=20) {
 		ellipse(tp.x, tp.y, xx, xx);
 		//rect(tp.x+xx, tp.y+xx, TILE_SIZE-(xx*2), TILE_SIZE-(xx*2));
 	}		
+	if (exitOpen) {
+		exitAnim++;
+		if (exitAnim > 20) exitAnim = 0;
+	}
 }
 
 function drawBoard() {
@@ -628,7 +665,7 @@ function drawLevelText() {
 	text('room '+(curLevel+1), x, y);
 	y += 20;
 	textSize(20);
-	text('[arrows to move, R to restart level, U to undo]', x, y);
+	text('arrows to move, R to restart level, Z to undo, +/- to change speed ['+(16-MOVE_FRAMES)+']', x, y);
 }
 
 function drawGame() {
@@ -650,13 +687,17 @@ function drawTitleScreen() {
 	textSize(40);
 	var x = MARGIN + ((tiles_h / 2) * TILE_SIZE);
 	var y = 220;
-	text('sokobrokobot', x, y);
+	text('tengam', x, y);
 	y += 40;
 	textSize(20);
 	text('[press space to start]', x, y);
-	y = 400;
+	y = 340;
+	text('how to play:', x, y);
+	y += 30;
 	text('arrows to move, R to restart level', x, y);
-	y += 40;
+	y += 24;
+	text('1-7 to go to a specific level', x, y);
+	y = 440;
 	text('move the boxes to                       then go to', x, y);
 	stroke(210);
 	fill(240);
@@ -726,7 +767,8 @@ function popUndo() {
 		bps[i].x = u.boxPos[i].x;
 		bps[i].y = u.boxPos[i].y;
 	}
-
+	exitOpen = canExit();
+	if (!exitOpen) exitAnim = 0;
 }
 
 function Item(gridX, gridY, whichThing) {
