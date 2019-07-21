@@ -29,7 +29,7 @@ function load() {
   if (!stored) {
   	print("Nothing is stored - getting via xhr");
 		var xhr = new XMLHttpRequest();
-		xhr.open('GET', '/puzzles.json');
+		xhr.open('GET', '/puzzles.json', false);
 		xhr.onload = function() {
 	    if (xhr.status === 200) {
   			print("got puzzles from server");
